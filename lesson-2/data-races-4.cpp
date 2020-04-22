@@ -1,6 +1,7 @@
 #include <iostream>
-#include <thread>
 #include <future>
+#include <thread>
+#include <memory>
 
 class Vehicle
 {
@@ -8,7 +9,7 @@ public:
     //default constructor
     Vehicle() : _id(0), _name(new std::string("Default Name"))
     {
-        std::cout << "Vehicle #" << _id << " default constructor called" << std::endl;
+        std::cout << "Vehicle #" << _id << " default construcor" << std::endl;
     }
 
     //initializing constructor
@@ -17,16 +18,14 @@ public:
         std::cout << "Vehicle #" << _id << " initializing constructor called" << std::endl;
     }
 
-    //copy constructor
-    Vehicle(Vehicle const &src)
+    //move constructor with unique pointer
+    Vehicle(Vehicle &&src) : _name(std::move(src._name))
     {
-        _id = src._id;
-        if (src._name != nullptr)
-        {
-            _name = new std::string;
-            *_name = *src._name;
-        }
-        std::cout << "Vehicle #" << _id << " copy constructor called" << std::endl;
+        //move id to this and reset id in source
+        _id = src.getId();
+        src.setId(0);
+
+        std::cout << "Vehicle #" << _id << " move constructor called" << std::endl;
     }
 
     //setter and getter
@@ -37,25 +36,22 @@ public:
 
 private:
     int _id;
-    std::string *_name;
+    std::unique_ptr<std::string> _name;
 };
 
 int main()
 {
-    //create instances of class Vehicle
+    //create instances of class vehicle
     Vehicle v0; //default constructor
     Vehicle v1(1, "Vehicle 1"); //initializing constructor
 
-    //launch a thread that modifies vehicle name
+    //launch thread that modifies vehicle name
     std::future<void> ftr = std::async([](Vehicle v) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
         v.setName("Vehicle 2");
-    }, v0);
-
-    v0.setName("Vehicle 3");
+    }, std::move(v0));
 
     ftr.wait();
-    std::cout << v0.getName() << std::endl;
+    //std::cout << v0.getName() << std::endl; //this will throw an exception
 
     return 0;
 }
