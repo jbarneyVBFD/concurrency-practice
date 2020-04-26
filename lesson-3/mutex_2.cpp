@@ -1,13 +1,14 @@
 #include <iostream>
-#include <thread>
-#include <future>
 #include <vector>
+#include <future>
+#include <mutex>
+#include <thread>
 #include <algorithm>
 
 class Vehicle
 {
 public:
-    Vehicle(int id) : _id(id){}
+    Vehicle(int id) : _id(id) {}
 
 private:
     int _id;
@@ -16,32 +17,33 @@ private:
 class WaitingVehicles
 {
 public:
-    WaitingVehicles() : _tmpVehicles(0) {}
+    WaitingVehicles() {}
 
     //getters and setters
-    void printSize()
+    void printSize() 
     {
-        std::cout << "#vehicles = " << _tmpVehicles << std::endl;
+        _mutex.lock();
+        std::cout << "# vehicles = " << _vehicles.size() << std::endl;
+        _mutex.unlock();
     }
 
     //typical behaviour methods
-    void pushBack(Vehicle &&v)
+    void pushBack(Vehicle &&v) 
     {
-        //_vehicles.push_back(std::move(v)); //data race would cause an exception
-        int oldNum = _tmpVehicles;
-        std::this_thread::sleep_for(std::chrono::microseconds(1)); //wait deliberately to expose data race
-        _tmpVehicles = oldNum + 1;
+        _mutex.lock();
+        _vehicles.emplace_back(std::move(v));
+        _mutex.unlock();
     }
+
 private:
-    int _tmpVehicles;
-    std::vector<Vehicle> _vehicles; //list of all vehicles waiting to enter this intersection 
+    std::mutex _mutex;
+    std::vector<Vehicle> _vehicles;
 };
 
 int main()
 {
     std::shared_ptr<WaitingVehicles> queue(new WaitingVehicles);
     std::vector<std::future<void>> futures;
-    int x{10};
     for (int i = 0; i < 1000; ++i)
     {
         Vehicle v(i);
